@@ -99,6 +99,7 @@ _local(){
 patch_requirements(){
 	local PACKAGE_DIR=$1
 	local TARGET_GEVENT_VERSION="${GEVENT_VERSION:-25.9.1}"
+	local TARGET_GREENLET_VERSION="${GREENLET_VERSION:-3.2.5}"
 
 	echo "Patching requirements if needed ..."
 	echo "Package dir: ${PACKAGE_DIR}"
@@ -108,44 +109,38 @@ patch_requirements(){
 		exit 1
 	fi
 
-	if [[ -f "${PACKAGE_DIR}/requirements.txt" ]]; then
-		echo "Checking requirements.txt ..."
-		grep -n "gevent" "${PACKAGE_DIR}/requirements.txt" || true
+	patch_file(){
+		local FILE_PATH=$1
 
-		if grep -q "gevent==26.5.0" "${PACKAGE_DIR}/requirements.txt"; then
-			echo "Patch gevent==26.5.0 -> gevent==${TARGET_GEVENT_VERSION}"
-
-			if [[ "linux" == "$OS_TYPE" ]]; then
-				sed -i "s/gevent==26\.5\.0/gevent==${TARGET_GEVENT_VERSION}/g" "${PACKAGE_DIR}/requirements.txt"
-			elif [[ "darwin" == "$OS_TYPE" ]]; then
-				sed -i ".bak" "s/gevent==26\.5\.0/gevent==${TARGET_GEVENT_VERSION}/g" "${PACKAGE_DIR}/requirements.txt"
-				rm -f "${PACKAGE_DIR}/requirements.txt.bak"
-			fi
+		if [[ ! -f "${FILE_PATH}" ]]; then
+			return 0
 		fi
 
-		echo "requirements.txt after patch:"
-		grep -n "gevent" "${PACKAGE_DIR}/requirements.txt" || true
-	fi
+		echo "Patching file: ${FILE_PATH}"
 
-	if [[ -f "${PACKAGE_DIR}/uv.lock" ]]; then
-		echo "Patching uv.lock ..."
 		if [[ "linux" == "$OS_TYPE" ]]; then
-			sed -i "s/26\.5\.0/${TARGET_GEVENT_VERSION}/g" "${PACKAGE_DIR}/uv.lock"
+			sed -i "s/gevent==26\.5\.0/gevent==${TARGET_GEVENT_VERSION}/g" "${FILE_PATH}"
+			sed -i "s/greenlet==3\.5\.1/greenlet==${TARGET_GREENLET_VERSION}/g" "${FILE_PATH}"
+			sed -i "s/version = \"26\.5\.0\"/version = \"${TARGET_GEVENT_VERSION}\"/g" "${FILE_PATH}"
+			sed -i "s/version = \"3\.5\.1\"/version = \"${TARGET_GREENLET_VERSION}\"/g" "${FILE_PATH}"
 		elif [[ "darwin" == "$OS_TYPE" ]]; then
-			sed -i ".bak" "s/26\.5\.0/${TARGET_GEVENT_VERSION}/g" "${PACKAGE_DIR}/uv.lock"
-			rm -f "${PACKAGE_DIR}/uv.lock.bak"
+			sed -i ".bak" "s/gevent==26\.5\.0/gevent==${TARGET_GEVENT_VERSION}/g" "${FILE_PATH}"
+			sed -i ".bak" "s/greenlet==3\.5\.1/greenlet==${TARGET_GREENLET_VERSION}/g" "${FILE_PATH}"
+			sed -i ".bak" "s/version = \"26\.5\.0\"/version = \"${TARGET_GEVENT_VERSION}\"/g" "${FILE_PATH}"
+			sed -i ".bak" "s/version = \"3\.5\.1\"/version = \"${TARGET_GREENLET_VERSION}\"/g" "${FILE_PATH}"
+			rm -f "${FILE_PATH}.bak"
 		fi
-	fi
+	}
 
-	if [[ -f "${PACKAGE_DIR}/pyproject.toml" ]]; then
-		echo "Patching pyproject.toml ..."
-		if [[ "linux" == "$OS_TYPE" ]]; then
-			sed -i "s/gevent==26\.5\.0/gevent==${TARGET_GEVENT_VERSION}/g" "${PACKAGE_DIR}/pyproject.toml"
-		elif [[ "darwin" == "$OS_TYPE" ]]; then
-			sed -i ".bak" "s/gevent==26\.5\.0/gevent==${TARGET_GEVENT_VERSION}/g" "${PACKAGE_DIR}/pyproject.toml"
-			rm -f "${PACKAGE_DIR}/pyproject.toml.bak"
-		fi
-	fi
+	echo "Before patch:"
+	grep -R -n "gevent\|greenlet" "${PACKAGE_DIR}" || true
+
+	patch_file "${PACKAGE_DIR}/requirements.txt"
+	patch_file "${PACKAGE_DIR}/uv.lock"
+	patch_file "${PACKAGE_DIR}/pyproject.toml"
+
+	echo "After patch:"
+	grep -R -n "gevent\|greenlet" "${PACKAGE_DIR}" || true
 }
 
 repackage(){
