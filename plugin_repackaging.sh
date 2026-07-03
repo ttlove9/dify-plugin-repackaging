@@ -100,6 +100,7 @@ patch_requirements(){
 	local PACKAGE_DIR=$1
 	local TARGET_GEVENT_VERSION="${GEVENT_VERSION:-25.9.1}"
 	local TARGET_GREENLET_VERSION="${GREENLET_VERSION:-3.2.5}"
+	local TARGET_TIKTOKEN_VERSION="${TIKTOKEN_VERSION:-0.11.0}"
 
 	echo "Patching requirements if needed ..."
 	echo "Package dir: ${PACKAGE_DIR}"
@@ -121,26 +122,33 @@ patch_requirements(){
 		if [[ "linux" == "$OS_TYPE" ]]; then
 			sed -i "s/gevent==26\.5\.0/gevent==${TARGET_GEVENT_VERSION}/g" "${FILE_PATH}"
 			sed -i "s/greenlet==3\.5\.1/greenlet==${TARGET_GREENLET_VERSION}/g" "${FILE_PATH}"
+			sed -i "s/tiktoken==0\.13\.0/tiktoken==${TARGET_TIKTOKEN_VERSION}/g" "${FILE_PATH}"
+
 			sed -i "s/version = \"26\.5\.0\"/version = \"${TARGET_GEVENT_VERSION}\"/g" "${FILE_PATH}"
 			sed -i "s/version = \"3\.5\.1\"/version = \"${TARGET_GREENLET_VERSION}\"/g" "${FILE_PATH}"
+			sed -i "s/version = \"0\.13\.0\"/version = \"${TARGET_TIKTOKEN_VERSION}\"/g" "${FILE_PATH}"
 		elif [[ "darwin" == "$OS_TYPE" ]]; then
 			sed -i ".bak" "s/gevent==26\.5\.0/gevent==${TARGET_GEVENT_VERSION}/g" "${FILE_PATH}"
 			sed -i ".bak" "s/greenlet==3\.5\.1/greenlet==${TARGET_GREENLET_VERSION}/g" "${FILE_PATH}"
+			sed -i ".bak" "s/tiktoken==0\.13\.0/tiktoken==${TARGET_TIKTOKEN_VERSION}/g" "${FILE_PATH}"
+
 			sed -i ".bak" "s/version = \"26\.5\.0\"/version = \"${TARGET_GEVENT_VERSION}\"/g" "${FILE_PATH}"
 			sed -i ".bak" "s/version = \"3\.5\.1\"/version = \"${TARGET_GREENLET_VERSION}\"/g" "${FILE_PATH}"
+			sed -i ".bak" "s/version = \"0\.13\.0\"/version = \"${TARGET_TIKTOKEN_VERSION}\"/g" "${FILE_PATH}"
+
 			rm -f "${FILE_PATH}.bak"
 		fi
 	}
 
 	echo "Before patch:"
-	grep -R -n "gevent\|greenlet" "${PACKAGE_DIR}" || true
+	grep -R -n "gevent\|greenlet\|tiktoken" "${PACKAGE_DIR}" || true
 
 	patch_file "${PACKAGE_DIR}/requirements.txt"
 	patch_file "${PACKAGE_DIR}/uv.lock"
 	patch_file "${PACKAGE_DIR}/pyproject.toml"
 
 	echo "After patch:"
-	grep -R -n "gevent\|greenlet" "${PACKAGE_DIR}" || true
+	grep -R -n "gevent\|greenlet\|tiktoken" "${PACKAGE_DIR}" || true
 }
 
 repackage(){
