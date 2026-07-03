@@ -7,24 +7,33 @@ on:
         description: "plugin author"
         required: true
         type: string
+        default: "langgenius"
       plugin_name:
         description: "plugin name"
         required: true
         type: string
+        default: "oaicompat_dify_model"
       plugin_version:
         description: "plugin version"
         required: true
         type: string
+        default: "0.0.10"
       platform_arm:
-        description: "Use ARM platform (true = manylinux_2_17_aarch64, false = manylinux_2_17_x86_64)"
+        description: "Use ARM platform (true = manylinux_2_28_aarch64, false = manylinux_2_28_x86_64)"
         required: true
+        type: choice
         default: "false"
+        options:
+          - "false"
+          - "true"
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  
+
 jobs:
   repackage:
     runs-on: ubuntu-latest
+
     steps:
       - name: Print workflow inputs
         run: |
@@ -36,10 +45,10 @@ jobs:
       - name: Resolve platform
         run: |
           if [ "${{ inputs.platform_arm }}" = "true" ]; then
-            echo "PIP_PLATFORM=manylinux_2_17_aarch64" >> "$GITHUB_ENV"
+            echo "PIP_PLATFORM=manylinux_2_28_aarch64" >> "$GITHUB_ENV"
             echo "PACKAGE_SUFFIX=offline-arm" >> "$GITHUB_ENV"
           else
-            echo "PIP_PLATFORM=manylinux_2_17_x86_64" >> "$GITHUB_ENV"
+            echo "PIP_PLATFORM=manylinux_2_28_x86_64" >> "$GITHUB_ENV"
             echo "PACKAGE_SUFFIX=offline" >> "$GITHUB_ENV"
           fi
 
@@ -51,33 +60,46 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Show resolved platform
+        run: |
+          echo "PIP_PLATFORM=$PIP_PLATFORM"
+          echo "PACKAGE_SUFFIX=$PACKAGE_SUFFIX"
+          python --version
+          pip --version
+
       - name: Make plugin_repackaging.sh executable
         run: chmod +x ./plugin_repackaging.sh
 
       - name: Run plugin repackaging script
+        env:
+          PIP_MIRROR_URL: https://pypi.org/simple
         run: |
-          PIP_MIRROR_URL=https://pypi.org/simple \
           ./plugin_repackaging.sh \
-          -p ${{ env.PIP_PLATFORM }} \
-          -s ${{ env.PACKAGE_SUFFIX }} \
-          market \
-          "${{ github.event.inputs.plugin_author }}" \
-          "${{ github.event.inputs.plugin_name }}" \
-          "${{ github.event.inputs.plugin_version }}"
+            -p "$PIP_PLATFORM" \
+            -s "$PACKAGE_SUFFIX" \
+            market \
+            "${{ inputs.plugin_author }}" \
+            "${{ inputs.plugin_name }}" \
+            "${{ inputs.plugin_version }}"
 
       - name: Find repackaged artifact
         run: |
           ARTIFACT_PATH=$(find . -type f -name "*-${PACKAGE_SUFFIX}.difypkg" | head -n 1)
+
           if [ -z "$ARTIFACT_PATH" ]; then
             echo "No *-${PACKAGE_SUFFIX}.difypkg artifact found!"
+            echo "Files in workspace:"
+            find . -maxdepth 3 -type f | sort
             exit 1
           fi
-      
-          echo "ARTIFACT_PATH=$ARTIFACT_PATH" >> $GITHUB_ENV
-          echo "ARTIFACT_NAME=$(basename "$ARTIFACT_PATH")" >> $GITHUB_ENV
+
+          echo "ARTIFACT_PATH=$ARTIFACT_PATH" >> "$GITHUB_ENV"
+          echo "ARTIFACT_NAME=$(basename "$ARTIFACT_PATH")" >> "$GITHUB_ENV"
+
+          echo "Found artifact: $ARTIFACT_PATH"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: ${{ env.ARTIFACT_PATH }}
