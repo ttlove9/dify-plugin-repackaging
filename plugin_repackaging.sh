@@ -96,6 +96,58 @@ _local(){
 	repackage ${PLUGIN_PACKAGE_PATH}
 }
 
+patch_requirements(){
+	local PACKAGE_DIR=$1
+	local TARGET_GEVENT_VERSION="${GEVENT_VERSION:-25.9.1}"
+
+	echo "Patching requirements if needed ..."
+	echo "Package dir: ${PACKAGE_DIR}"
+
+	if [[ ! -d "${PACKAGE_DIR}" ]]; then
+		echo "Package dir not found: ${PACKAGE_DIR}"
+		exit 1
+	fi
+
+	if [[ -f "${PACKAGE_DIR}/requirements.txt" ]]; then
+		echo "Checking requirements.txt ..."
+		grep -n "gevent" "${PACKAGE_DIR}/requirements.txt" || true
+
+		if grep -q "gevent==26.5.0" "${PACKAGE_DIR}/requirements.txt"; then
+			echo "Patch gevent==26.5.0 -> gevent==${TARGET_GEVENT_VERSION}"
+
+			if [[ "linux" == "$OS_TYPE" ]]; then
+				sed -i "s/gevent==26\.5\.0/gevent==${TARGET_GEVENT_VERSION}/g" "${PACKAGE_DIR}/requirements.txt"
+			elif [[ "darwin" == "$OS_TYPE" ]]; then
+				sed -i ".bak" "s/gevent==26\.5\.0/gevent==${TARGET_GEVENT_VERSION}/g" "${PACKAGE_DIR}/requirements.txt"
+				rm -f "${PACKAGE_DIR}/requirements.txt.bak"
+			fi
+		fi
+
+		echo "requirements.txt after patch:"
+		grep -n "gevent" "${PACKAGE_DIR}/requirements.txt" || true
+	fi
+
+	if [[ -f "${PACKAGE_DIR}/uv.lock" ]]; then
+		echo "Patching uv.lock ..."
+		if [[ "linux" == "$OS_TYPE" ]]; then
+			sed -i "s/26\.5\.0/${TARGET_GEVENT_VERSION}/g" "${PACKAGE_DIR}/uv.lock"
+		elif [[ "darwin" == "$OS_TYPE" ]]; then
+			sed -i ".bak" "s/26\.5\.0/${TARGET_GEVENT_VERSION}/g" "${PACKAGE_DIR}/uv.lock"
+			rm -f "${PACKAGE_DIR}/uv.lock.bak"
+		fi
+	fi
+
+	if [[ -f "${PACKAGE_DIR}/pyproject.toml" ]]; then
+		echo "Patching pyproject.toml ..."
+		if [[ "linux" == "$OS_TYPE" ]]; then
+			sed -i "s/gevent==26\.5\.0/gevent==${TARGET_GEVENT_VERSION}/g" "${PACKAGE_DIR}/pyproject.toml"
+		elif [[ "darwin" == "$OS_TYPE" ]]; then
+			sed -i ".bak" "s/gevent==26\.5\.0/gevent==${TARGET_GEVENT_VERSION}/g" "${PACKAGE_DIR}/pyproject.toml"
+			rm -f "${PACKAGE_DIR}/pyproject.toml.bak"
+		fi
+	fi
+}
+
 repackage(){
 	local PACKAGE_PATH=$1
 	PACKAGE_NAME_WITH_EXTENSION=`basename ${PACKAGE_PATH}`
@@ -108,6 +160,7 @@ repackage(){
 		exit 1
 	fi
 	echo "Unzip success."
+	patch_requirements "${CURR_DIR}/${PACKAGE_NAME}"
 	echo "Repackaging ..."
 	cd ${CURR_DIR}/${PACKAGE_NAME}
 	pip download ${PIP_PLATFORM} -r requirements.txt -d ./wheels --index-url ${PIP_MIRROR_URL} --trusted-host mirrors.aliyun.com
