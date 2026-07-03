@@ -163,7 +163,7 @@ repackage(){
 		exit 1
 	fi
 	echo "Unzip success."
-	patch_requirements "${CURR_DIR}/${PACKAGE_NAME}"
+
 	echo "Repackaging ..."
 	cd ${CURR_DIR}/${PACKAGE_NAME}
 	pip download ${PIP_PLATFORM} -r requirements.txt -d ./wheels --index-url ${PIP_MIRROR_URL} --trusted-host mirrors.aliyun.com
